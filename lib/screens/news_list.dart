@@ -351,7 +351,7 @@ class NewsListState extends State<NewsList> {
                               subject: articles[position].url ?? "");
                             },
                           ),
-                          InkWell(
+                          InkWell(//
                             onTap: () {},
                             child: Container(
                               child: ClipRRect(
