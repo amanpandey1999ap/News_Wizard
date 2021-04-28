@@ -33,7 +33,7 @@ class AboutScreen extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: 20.0),
             child: Center(
                 child: Text(
-              'Current Version : 1.0.0 Beta',
+              'Current Version : 1.0.1 Beta',
               style: TextStyle(fontSize: 13.0),
             ))),
       ],

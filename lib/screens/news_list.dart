@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
@@ -8,6 +9,10 @@ import 'package:flutter/widgets.dart';
 import 'package:newswizard/screens/about.dart';
 import 'package:newswizard/source_data.dart';
 import 'package:share/share.dart';
+import 'package:newswizard/app_theme.dart';
+import 'package:provider/provider.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+import 'package:newswizard/screens/news_webview.dart';
 
 class NewsList extends StatefulWidget {
   @override
@@ -21,6 +26,8 @@ class NewsListState extends State<NewsList> {
   TopHeadlineResponse dummyData;
   Future<SourceData> sourceData;
 
+  //Completer<WebViewController> _controller = Completer<WebViewController>();
+
   String dropdownValue;
   String countryDropdownValue = 'All';
 
@@ -29,6 +36,7 @@ class NewsListState extends State<NewsList> {
     super.initState();
     futureData = callTopHeadlineAPI();
     sourceData = callSourceDataAPI();
+    if (Platform.isAndroid) WebView.platform = SurfaceAndroidWebView();
   }
 
   Future<SourceData> callSourceDataAPI() async {
@@ -38,25 +46,27 @@ class NewsListState extends State<NewsList> {
 
     var uri = Uri.https('newsapi.org', '/v2/sources', queryParameters);
 
-    final response = await http.get(uri);
-    if (response.statusCode == 200) {
-      return SourceData.fromJson(jsonDecode(response.body));
-    } else {
-      throw Exception('Failed to load Source');
-    }
+    final response = await http.delete(uri);
+    //   if (response.statusCode == 200) {
+    return SourceData.fromJson(jsonDecode(response.body));
+    // } else {
+    //   throw Exception('Failed to load Source');
+    // }
   }
 
   Future<TopHeadlineResponse> callTopHeadlineAPI() async {
     var queryParameters = {
       'country': 'us',
-      'apiKey': '62f4a0d66e1e4665b1da403824f090',
+      'apiKey': '62f4a0d66e1e4665b2b1da403824f090',
     };
 
     var uri = Uri.https('newsapi.org', '/v2/top-headlines', queryParameters);
 
     final response = await http.get(uri);
     if (response.statusCode == 200) {
-      return TopHeadlineResponse.fromJson(jsonDecode(response.body));
+      var responseBody = response.body;
+      var decodedMap = jsonDecode(responseBody);
+      return TopHeadlineResponse.fromJson(decodedMap);
     } else {
       var article = Articles(
           source: null,
@@ -82,10 +92,10 @@ class NewsListState extends State<NewsList> {
   Future<TopHeadlineResponse> callSearchAPI(
       {String q = "", String country = "", String source = ""}) async {
     var queryParameters = {
-      //  'q': 'k',
-      // 'source': source,
+      'q': q,
+      'source': source,
       'domains': "techcrunch.com,thenextweb.com",
-      'apiKey': '62fa0d66e1e4665b2b1da403824f090',
+      'apiKey': '62f4a0d66e1e4665b2b1da403824f090',
     };
 
     var uri = Uri.https('newsapi.org', '/v2/everything', queryParameters);
@@ -104,16 +114,18 @@ class NewsListState extends State<NewsList> {
 
   @override
   Widget build(BuildContext context) {
+    final themeChange = Provider.of<DarkThemeProvider>(context);
+
     void comingSoonAlertDialogue() {
       var csDialogue = AlertDialog(
           title: Row(
             children: [
-              Icon(Icons.brightness_7),
+              Icon(Icons.favorite,color: Colors.red,),
               Expanded(
                   child: Column(children: [
-                Text(' Light Mode '),
+                Text(' Favourites '),
                 Container(
-                  margin: EdgeInsets.only(top: 10.0, bottom: 20.0),
+                  margin: EdgeInsets.only(top: 5.0, bottom: 20.0),
                   child: Text(' coming soon'),
                 )
               ]))
@@ -125,7 +137,7 @@ class NewsListState extends State<NewsList> {
                 children: [
                   Spacer(),
                   FlatButton(
-                    color: Colors.white12,
+                    // color: Colors.white12,
                     child: Text('OK'),
                     onPressed: () {
                       Navigator.of(context).pop();
@@ -142,6 +154,8 @@ class NewsListState extends State<NewsList> {
 
     return Scaffold(
         appBar: AppBar(
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(10))),
           title: Text('Discover Latest feed'),
           actions: <Widget>[
             IconButton(
@@ -169,19 +183,24 @@ class NewsListState extends State<NewsList> {
                 children: <Widget>[
                   ListTile(
                     title: Text('Dark Mode'),
+                    leading: Icon(Icons.brightness_4,),
                     trailing: Switch(
-                        value: darkModeSwitch,
-                        onChanged: (bool state) {
-                          setState(() {
-                            //darkModeSwitch = state;
-                          });
+                        value: themeChange.darkTheme,
+                        onChanged: (bool value) {
+                          themeChange.darkTheme = value;
                         }),
-                    onTap: () {
+                    onTap: () {},
+                  ),
+                  ListTile(
+                    title: Text('Favorites'),
+                    leading: Icon(Icons.favorite_outline_rounded),
+                    onTap: (){
                       comingSoonAlertDialogue();
                     },
                   ),
                   ListTile(
                     title: Text('About'),
+                    leading: Icon(Icons.info_outline),
                     onTap: () {
                       Navigator.push(context,
                           MaterialPageRoute(builder: (context) {
@@ -190,6 +209,7 @@ class NewsListState extends State<NewsList> {
                     },
                   ),
                   ListTile(
+                    leading: Icon(Icons.power_settings_new_outlined),
                     title: Text('Exit'),
                     onTap: () {
                       exit(0);
@@ -227,23 +247,23 @@ class NewsListState extends State<NewsList> {
                   ),
                 ),
                 Padding(
-                  padding: EdgeInsets.only(left: 20.0),
+                  padding: EdgeInsets.only(left: 20.0, top: 10.0),
                   child: Row(
                     children: <Widget>[
                       Expanded(flex: 1, child: Text(' Source  :')),
-                      Expanded(
-                          flex: 4,
-                          child: FutureBuilder<SourceData>(
-                              future: sourceData,
-                              builder: (context, snapshot) {
-                                if (snapshot.hasData) {
-                                  return sourceDropDownList(
-                                      snapshot.data.sources);
-                                } else if (snapshot.hasError) {
-                                  return Text("${snapshot.error}");
-                                }
-                                return CircularProgressIndicator();
-                              }))
+                      // Expanded(
+                      //     flex: 4,
+                      //     child: FutureBuilder<SourceData>(
+                      //         future: sourceData,
+                      //         builder: (context, snapshot) {
+                      //           if (snapshot.hasData) {
+                      //             return sourceDropDownList(
+                      //                 snapshot.data.sources);
+                      //           } else if (snapshot.hasError) {
+                      //             return Text("${snapshot.error}");
+                      //           }
+                      //           return CircularProgressIndicator();
+                      //         }))
                     ],
                   ),
                 ),
@@ -261,17 +281,19 @@ class NewsListState extends State<NewsList> {
           ),
           Flexible(
               child: Center(
-                  child: getNewsListView(dummyData.articles)/*FutureBuilder<TopHeadlineResponse>(
-                      future: futureData,
-                      builder: (context, snapshot) {
-                        if (snapshot.hasData) {
-                          return getNewsListView(dummyData.articles);
-                        } else if (snapshot.hasError) {
-                          return Text("${snapshot.error}");
-                        }
+                  child: //getNewsListView(dummyData.articles)
+                      FutureBuilder<TopHeadlineResponse>(
+                          future: futureData,
+                          builder: (context, snapshot) {
+                            if (snapshot.hasData) {
+                              // return getNewsListView(dummyData.articles);
+                              return getNewsListView(snapshot.data.articles);
+                            } else if (snapshot.hasError) {
+                              return Text("${snapshot.error}");
+                            }
 
-                        return CircularProgressIndicator();
-                      })*/)),
+                            return CircularProgressIndicator();
+                          }))),
         ])));
   }
 
@@ -286,7 +308,7 @@ class NewsListState extends State<NewsList> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(15.0),
                 ),
-                color: Colors.white12,
+                // color: Colors.white12,
                 elevation: 10.0,
                 child: Column(
                   children: <Widget>[
@@ -300,6 +322,10 @@ class NewsListState extends State<NewsList> {
                           padding: const EdgeInsets.only(top: 10.0),
                           child: Text(articles[position].description ?? "")),
                       onTap: () {
+                        Navigator.push(context,
+                            MaterialPageRoute(builder: (context) {
+                          return NewsWebView(url:articles[position].url ?? "", title: articles[position].title ?? "");
+                        }));
                         debugPrint('Tile Tapped');
                       },
                     ),
@@ -345,14 +371,15 @@ class NewsListState extends State<NewsList> {
                             icon: Icon(
                               Icons.share,
                             ),
-                            onPressed: (){
-                              Share.share(
-                                  articles[position].title ?? "",
-                              subject: articles[position].url ?? "");
+                            onPressed: () {
+                              Share.share(articles[position].url ?? "",
+                                  subject: articles[position].title ?? "");
                             },
                           ),
-                          InkWell(//
-                            onTap: () {},
+                          InkWell(
+                            onTap: () {
+                              displayBottomSheet(context);
+                            },
                             child: Container(
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(20.0),
@@ -369,7 +396,6 @@ class NewsListState extends State<NewsList> {
       },
     );
   }
-
 
   String dateFormat(String date) {
     final DateTime now = DateTime.now();
@@ -391,7 +417,6 @@ class NewsListState extends State<NewsList> {
         setState(() {
           dropdownValue = newValue;
           debugPrint('$dropdownValue tapped');
-
           callSearchAPI(source: dropdownValue);
         });
       },
@@ -428,6 +453,38 @@ class NewsListState extends State<NewsList> {
       ],
     );
   }
+
+  void displayBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+        context: context,
+        builder: (ctx){
+          return Container(
+            height: 200.0,
+            child: Center(
+              child: ListView(
+                children: [
+                  ListTile(
+                    leading: Icon(Icons.share_rounded),
+                    title: Text('Share'),
+                    onTap: (){},
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.link),
+                    title: Text('Get Link'),
+                    onTap: (){},
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.favorite_outline, color: Colors.red),
+                    title: Text('Add to Favorites'),
+                    onTap: (){},
+                  )
+                ],
+              )
+            ),
+          );
+        }
+    );
+  }
 }
 
 class PhImageAsset extends StatelessWidget {
@@ -437,17 +494,6 @@ class PhImageAsset extends StatelessWidget {
     Image phimg = Image(image: assetImage);
     return Container(
       child: phimg,
-    );
-  }
-}
-
-class NwImageAsset extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    AssetImage assetImage = AssetImage('images/news_wizard.png');
-    Image newzwiz = Image(image: assetImage);
-    return Container(
-      child: newzwiz,
     );
   }
 }
